@@ -58,6 +58,10 @@ wsEF.on('connection', (wsef, req) => {  //前后端ws
     });
 });
 
+
+
+
+
 app.get('/tolocalws', (req, res) => {
     const connectDeviceIp = req.query.device_ip;
     const connectDevicePort = req.query.device_port;
