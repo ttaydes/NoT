@@ -2,13 +2,13 @@ const express = require('express');
 const cors = require('cors');
 const WebSocket = require('ws');
 const url = require('url');
+const { stringify } = require('querystring');
 
 const app = express();
 
 app.use(cors());
 let connectdevice = []
 let lastcconnectdevice = [] //上一次设备列表
-const connectInstance = {}
 const args = process.argv.slice(2);
 const ip = args[0] || '127.0.0.1';  // node默认绑定 localhost
 const port = args[1] || 33451;       // node 默认端口 33451
@@ -45,16 +45,16 @@ wsEF.on('connection', (wsef, req) => {  //前后端ws
         const localdevreqname = JSON.parse(evenddata).localreqlinknames;
         const localreqlinkip = JSON.parse(evenddata).localreqlinkip;
         const localreqlinkport = JSON.parse(evenddata).localreqlinkport;
-        const lcoaldevstatus = JSON.parse(evenddata).status;
-        if (lcoaldevstatus == "accept") {
-            const a = JSON.stringify({ localreqlinknames: localdevreqname, localreqlinkip: localreqlinkip, localreqlinkport: localreqlinkport,status: lcoaldevstatus});
+        const localdevstatus = JSON.parse(evenddata).status;
+        if (localdevstatus == "accept") {
+            const a = JSON.stringify({ localreqlinknames: localdevreqname, localreqlinkip: localreqlinkip, localreqlinkport: localreqlinkport,status: localdevstatus});
       
             sendMessageToClient('frontws', a); //每秒推送给前端  
       
         }
-        else if(lcoaldevstatus == "reject"){
+        else if(localdevstatus == "reject"){
             console.log("断开连接");
-            const b = JSON.stringify({localreqlinknames: localdevreqname,status: lcoaldevstatus});
+            const b = JSON.stringify({localreqlinknames: localdevreqname,status: localdevstatus});
            
             sendMessageToClient('frontws', b); //每秒推送给前端  
          
@@ -78,23 +78,27 @@ app.get('/tolocalws', (req, res) => {
 
         // 监听连接成功事件
         const fromws = new WebSocket(wsurl); // 与对方建立一个连接实例
-        connectInstance[connectDeviceIp] = fromws
-
+        nameToWsMap.set(connectDeviceIp, fromws)
+        wsToNameMap.set(fromws, connectDeviceIp)
+        connectdevice.push({devicename: connectDeviceIp,end: 'c'});
         fromws.on('open', () => {
             fromws.send(JSON.stringify({ 
                 reqlinkname: ip,
                 reqlinkip: ip,
-                reqlinkport: connectDevicePort
+                reqlinkport: port
             }))}); //写明身份
-
         fromws.addEventListener('message', (event) => {
             const wsdata = event.data;
             const jsonwsdata = JSON.parse(wsdata); // 接收到对方的连接
+            const reqlinknames = jsonwsdata.reqlinkname;
+              //当服务端主动断开调用
 
+            if(jsonwsdata.status == "reject"){
+                wstoef.send(JSON.stringify({ localreqlinknames: reqlinknames,status: 'reject' })); //将接受的设备名 推送前端efws
+            }
 
             if (jsonwsdata.status == "connected") {
-
-                res.status(200).json({ LinkStatus: "connectok" }); // 发给我的前端验证 发送二者会话id
+                res.status(200).json({ LinkStatus: "connectok" }); // 发给我的前端验证 
 
             }
         });
@@ -106,15 +110,42 @@ app.get('/tolocalws', (req, res) => {
         
     }
     else if (connectStatus == "close") {
-        const ws = nameToWsMap.get(connectDeviceIp);
-        if (ws) {
-            ws.close(); // Properly close the WebSocket connection
+
         
-            nameToWsMap.delete(connectDeviceIp);
-            console.log("断开连接");
-            res.status(200).json({ LinkStatus: "closeok" });
+        const wsinstance = nameToWsMap.get(connectDeviceIp);
+        if (wsinstance && wsinstance.readyState === WebSocket.OPEN) {
+            try {
+                console.log(connectdevice);      
+                if(connectdevice.find(client => client.devicename === connectDeviceIp && client.end === 's')){
+
+                    wsinstance.send(JSON.stringify({ 
+                        reqlinkname: ip,
+                        status: 'reject' 
+                    })); //当服务端主动断开的时候有用 作为服务端时暂无作用 但是消息也发过去了
+                    
+                }   
+            
+                setTimeout(() => {
+                    wsinstance.close();
+                    nameToWsMap.delete(connectDeviceIp);
+                }, 100);
+        
+            
+                res.status(200).json({ LinkStatus: "closeok" });
+
+            }catch (error) {
+                console.error("发送断开消息失败:", error);
+                wsinstance.close();
+                nameToWsMap.delete(connectDeviceIp);
+                res.status(200).json({ LinkStatus: "closeok" });
+            }
         } else {
+            wstoef.send(JSON.stringify({ 
+                localreqlinknames: connectDeviceIp,
+                status: 'reject' 
+            }));
             res.status(404).json({ error: "No active connection found" });
+            
         }
     }
 
@@ -142,39 +173,60 @@ const ws = new WebSocket.Server({  server: servers })
 ws.on('connection', (ws) => {
 
     ws.on('message', (event) => {
+        console.log("收到消息");
         const eventdata = event.toString()
-        const reqlinknames = JSON.parse(eventdata).reqlinkname;  //接收对方”我是谁“
-        const reqlinkip = JSON.parse(eventdata).reqlinkip;  //接收对方”我是谁“
-        const reqlinkport = JSON.parse(eventdata).reqlinkport;  //接收对方”我是谁“
-        const reqlinkstatus = JSON.parse(eventdata).status;  //接收对方”我是谁状态
-
+        console.log(eventdata);
+        const reqlinknames = JSON.parse(eventdata).reqlinkname;
+        const reqlinkip = JSON.parse(eventdata).reqlinkip;
+        const reqlinkport = JSON.parse(eventdata).reqlinkport;
+       
         wsToNameMap.set(ws, reqlinknames);
         nameToWsMap.set(reqlinknames, ws);
 
         nameToWsMap.get(reqlinknames).send(JSON.stringify({ status: 'connected', devicename: reqlinknames })); //连接成功返回到对面                               
         
-        connectdevice.push(reqlinknames);
+        connectdevice.push({devicename: reqlinknames,end: 's'});
+        
+
         if (reqlinknames && lastcconnectdevice != connectdevice) {
             console.log("发送数据给efws");
             wstoef.send(JSON.stringify({ localreqlinknames: reqlinknames,localreqlinkip: reqlinkip,localreqlinkport: reqlinkport,status: 'accept' })); //将接受的设备名 推送前端efws
         }
+        
 
-        if(reqlinkstatus == "reject"){
-            wstoef.send(JSON.stringify({ localreqlinknames: reqlinknames,status: 'reject' })); // 接收对面的断开 推送给efws
-        }
+        
+     
         
 
     });
 
-    // 连接关闭时从设备列表中移除该设备
+    // 当客户端端主动断开触发
     ws.on('close', () => {
+        const deviceName = wsToNameMap.get(ws);
+        if (deviceName) {
+            wstoef.send(JSON.stringify({ localreqlinknames: deviceName,status: 'reject' })); //将接受的设备名 推送前端efws
+            // 清理映射
+            wsToNameMap.delete(ws);
+            nameToWsMap.delete(deviceName);
+        }
         
-        ws.send(JSON.stringify({ localreqlinknames: wsToNameMap.get(ws),status: 'reject' })); //被动断开发送给对面的ws
-        wstoef.send(JSON.stringify({ localreqlinknames: wsToNameMap.get(ws),status: 'reject' })); //主动断开 发送自身的wsef
-        connectdevice = connectdevice.filter(client => client !== ws); //设备会话从保存数组踢出去
+        connectdevice = connectdevice.filter(client => client.devicename !== deviceName);
     });
     ws.on('error', function error(err) {
         console.error('ws error: ', err);
+        
+        const deviceName = wsToNameMap.get(ws);
+        if (deviceName) {
+            wstoef.send(JSON.stringify({ 
+                localreqlinknames: deviceName,
+                status: 'reject' 
+            }));
+            
+            // 清理映射
+            wsToNameMap.delete(ws);
+            nameToWsMap.delete(deviceName);
+            connectdevice = connectdevice.filter(client => client.devicename !== deviceName);
+        }
     });
 });
 
