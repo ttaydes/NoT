@@ -179,14 +179,21 @@ ws.on('connection', (ws) => {
         const reqlinknames = JSON.parse(eventdata).reqlinkname;
         const reqlinkip = JSON.parse(eventdata).reqlinkip;
         const reqlinkport = JSON.parse(eventdata).reqlinkport;
-       
-        wsToNameMap.set(ws, reqlinknames);
-        nameToWsMap.set(reqlinknames, ws);
+        const reqlinktype = JSON.parse(eventdata).type; // 消息类型 clipboard or filetrans
 
-        nameToWsMap.get(reqlinknames).send(JSON.stringify({ status: 'connected', devicename: reqlinknames })); //连接成功返回到对面                               
-        
-        connectdevice.push({devicename: reqlinknames,end: 's'});
-        
+        if(reqlinktype == "clipboard"){
+
+            const clipboarddata = JSON.parse(eventdata).content;
+            ws.send(JSON.stringify({ type: 'clipboard', content: clipboarddata }));
+        }
+        else if(reqlinktype == undefined){
+            wsToNameMap.set(ws, reqlinknames);
+            nameToWsMap.set(reqlinknames, ws);
+            nameToWsMap.get(reqlinknames).send(JSON.stringify({ status: 'connected', devicename: reqlinknames })); //连接成功返回到对面                               
+            
+            connectdevice.push({devicename: reqlinknames,end: 's'});
+        }
+
 
         if (reqlinknames && lastcconnectdevice != connectdevice) {
             console.log("发送数据给efws");

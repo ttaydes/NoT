@@ -18,12 +18,12 @@ class MyListener:
         dev_name = name.split('.')[0]
     
         s = info.addresses[0]
+
         nd = 'node_port'.encode()
         local_node_port_encoded = info.properties[nd]
         local_node_port = local_node_port_encoded.decode()
         decimal_values = list(s)
         ip_address = '.'.join(map(str, decimal_values))
-       
         dev_info = {"device_name":dev_name,"device_ip":ip_address,"device_nodeport":local_node_port}
 
         if dev_info not in self.local_online_device:
