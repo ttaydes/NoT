@@ -13,6 +13,7 @@ const args = process.argv.slice(2);
 const ip = args[0] || '127.0.0.1';  // node默认绑定 localhost
 const port = args[1] || 33451;       // node 默认端口 33451
 const wslinkclient = {}; //连接前后端ws 的实例
+const clipboardLink = new Map(); //剪贴板连接实例
 const wsToNameMap = new Map();  // WebSocket -> name
 const nameToWsMap = new Map();  // name -> WebSocket
 app.listen(3345, '127.0.0.1', () => {
@@ -46,6 +47,14 @@ wsEF.on('connection', (wsef, req) => {  //前后端ws
         const localreqlinkip = JSON.parse(evenddata).localreqlinkip;
         const localreqlinkport = JSON.parse(evenddata).localreqlinkport;
         const localdevstatus = JSON.parse(evenddata).status;
+        const localreqlinktype = JSON.parse(evenddata).type;
+        const localreqlinkcontent = JSON.parse(evenddata).content;
+        if(localreqlinktype == "clipboard"){
+            console.log("收到数据了1111");
+            const c = JSON.stringify({ localreqlinknames: localdevreqname, localreqlinkip: localreqlinkip, localreqlinkport: localreqlinkport,type: 'clipboard',content: localreqlinkcontent});
+
+            sendMessageToClient('clipboardws', c); //每秒推送给前端  
+        }
         if (localdevstatus == "accept") {
             const a = JSON.stringify({ localreqlinknames: localdevreqname, localreqlinkip: localreqlinkip, localreqlinkport: localreqlinkport,status: localdevstatus});
       
@@ -180,11 +189,12 @@ ws.on('connection', (ws) => {
         const reqlinkip = JSON.parse(eventdata).reqlinkip;
         const reqlinkport = JSON.parse(eventdata).reqlinkport;
         const reqlinktype = JSON.parse(eventdata).type; // 消息类型 clipboard or filetrans
+        const clipboarddata = JSON.parse(eventdata).content;
 
-        if(reqlinktype == "clipboard"){
-
-            const clipboarddata = JSON.parse(eventdata).content;
-            ws.send(JSON.stringify({ type: 'clipboard', content: clipboarddata }));
+        if(reqlinktype == "clipboard" ){
+            clipboardLink.set(reqlinknames,ws);
+            wstoef.send(JSON.stringify({ localreqlinknames: reqlinknames,localreqlinkip: reqlinkip,localreqlinkport: reqlinkport,type: 'clipboard' ,content: clipboarddata})); //将接受的设备名 推送前端efws
+            console.log("发送数据给efws");
         }
         else if(reqlinktype == undefined){
             wsToNameMap.set(ws, reqlinknames);
