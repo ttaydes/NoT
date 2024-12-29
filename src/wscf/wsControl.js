@@ -50,7 +50,6 @@ wsEF.on('connection', (wsef, req) => {  //前后端ws
         const localreqlinktype = JSON.parse(evenddata).type;
         const localreqlinkcontent = JSON.parse(evenddata).content;
         if(localreqlinktype == "clipboard"){
-            console.log("收到数据了1111");
             const c = JSON.stringify({ localreqlinknames: localdevreqname, localreqlinkip: localreqlinkip, localreqlinkport: localreqlinkport,type: 'clipboard',content: localreqlinkcontent});
 
             sendMessageToClient('clipboardws', c); //每秒推送给前端  

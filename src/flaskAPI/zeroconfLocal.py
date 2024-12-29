@@ -26,6 +26,7 @@ class MyListener:
         ip_address = '.'.join(map(str, decimal_values))
         dev_info = {"device_name":dev_name,"device_ip":ip_address,"device_nodeport":local_node_port}
 
+
         if dev_info not in self.local_online_device:
            self.local_online_device.append(dev_info)
     def remove_service(self, zeroconf, type, name):
