@@ -25,7 +25,18 @@ export default {
       online_dev: "", // 所有在线的设备
       linkPort: 33451, //连接端口
       isdevconnected: false, //记录连接设备列表是否有设备
+      
       connecteddev: [],
+      panelPosition: {
+        x: 0,
+        y: 0
+      },
+      isDragging: false,
+      dragOffset: {
+        x: 0,
+        y: 0
+      },
+      panels: [], // 新增：存储所有打开的面板
     };
   },
 
@@ -36,30 +47,64 @@ export default {
 
   methods: {
     validateIP() {
-      if (this.selectedIP.trim() === "" || this.inputError) {
-        // 如果输入框为空，设置错误状态
+      // IPv4 format validation
+      const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
+      // IPv6 format validation
+      const ipv6Regex = /^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::$/;
+      // Chinese characters check
+      const hanziRegex = /[\u4e00-\u9fa5]/;
+
+      // Clear error state if input is empty
+      if (!this.selectedIP.trim()) {
+        this.error = "";
+        this.inputError = false;
+        return;
+      }
+
+      if (hanziRegex.test(this.selectedIP)) {
+        this.error = "IP地址不能包含汉字";
         this.inputError = true;
         return;
-      } else {
-        this.inputError = false; // 输入框非空，清除错误状态
       }
+
+      if (!ipv4Regex.test(this.selectedIP) && !ipv6Regex.test(this.selectedIP)) {
+        this.error = "请输入有效的IPv4或IPv6地址";
+        this.inputError = true;
+        return;
+      }
+
+      this.error = "";
+      this.inputError = false;
     },
     validatePort() {
-      var re = /^[A-Za-z]+$/; //
-      var re_hanzi = /^[\u4e00-\u9fa5]*$/;
-      //验证端口
-      // 允许的端口范围是 0 到 65535
+      // Clear error state if input is empty
+      if (!this.linkPort || this.linkPort.trim() === '') {
+        this.error = "";
+        this.inputError = false;
+        return;
+      }
+
+      // Check for non-numeric characters
+      if (!/^\d+$/.test(this.linkPort)) {
+        this.error = "端口号只能包含数字";
+        this.inputError = true;
+        this.linkPort = this.linkPort.replace(/\D/g, '');
+        return;
+      }
+
+      // Convert to number for range checking
       const portNumber = Number(this.linkPort);
-      // 限制输入为数字且不允许超出范围
-      if (
-        String(this.linkPort).match(re) ||
-        String(this.linkPort).match(re_hanzi)
-      ) {
-        this.linkPort = "";
+      
+      // Check port range (0-65535)
+      if (portNumber < 0 || portNumber > 65535) {
+        this.error = "端口号必须在0-65535之间";
+        this.inputError = true;
+        this.linkPort = this.linkPort.slice(0, -1);
+        return;
       }
-      if (this.linkPort && (portNumber < 0 || portNumber > 65535)) {
-        this.linkPort = this.linkPort.slice(0, -1); // 移除最后一个输入的字符
-      }
+
+      this.error = "";
+      this.inputError = false;
     },
     // 扫描本机所有内网IP
     async scanLocalIPs() {
@@ -106,12 +151,17 @@ export default {
 
     // 连接到选择的 IP 地址
     async serverOpen() {
+      // Don't allow service start if there are validation errors
+      if (this.inputError || this.error) {
+        return;
+      }
+
       this.action = this.isServiceOpen ? "0" : "1";
 
       try {
         const response = await fetch(
           `http://127.0.0.1:5001/api/serv?ip=${this.selectedIP}&port=${this.linkPort}&isopen=${this.action}`
-        ); //监听发布者服务打开/关闭
+        );
 
         const data = await response.json();
 
@@ -121,11 +171,10 @@ export default {
         } else if (data.status_id === 2) {
           this.isServiceOpen = false;
         } else {
-          this.buttonText = "服务开启失败";
+          this.error = "服务开启失败";
         }
       } catch (err) {
-        this.buttonText = "开放服务";
-        this.error = "获取局域网 IP 失败，请检查网络连接或重试。"; // 请求失败时显示的错误信息
+        this.error = "获取局域网 IP 失败，请检查网络连接或重试。";
       }
     },
 
@@ -202,7 +251,7 @@ export default {
     },
 
     // 在组件销毁时关闭 WebSocket 连接
-    beforeDestroy() {
+    beforeUnmount() {
       this.closeWebSocket();
     },
     //连接设备
@@ -258,17 +307,77 @@ export default {
       }
     },
     openDeviceSync(index) {
-      this.connecteddev.forEach((device)=>{
+      
+
+      // 创建新的面板实例
+      const newPanel = {
+        id: Date.now(), // 唯一标识符
+        deviceId: this.connecteddev[index].id,
+        deviceIp: this.connecteddev[index].ip,
+        devicePort: this.connecteddev[index].port,
+        position: {
+          x: 100 + (this.panels.length * 30), // 错开放置
+          y: 100 + (this.panels.length * 30)
+        }
+      };
+      
+      this.panels.push(newPanel);
+      this.connecteddev[index].opensyncpanel = true;
+      console.log(this.panels);
+    },
+    closeDeviceSync(panelId) {
+      // 移除特定的面板
+      this.panels = this.panels.filter(panel => panel.deviceId !== panelId);
+      // 如果设备没有其他打开的面板，更新设备状态
+      console.log(this.panels)
+      const device = this.connecteddev.find((dev) => 
+          (panelId === dev.id));
+      
+      if(device){
         device.opensyncpanel = false;
-      })
-      if (this.connecteddev[index]) {
-          this.connecteddev[index].opensyncpanel = true;
+      }
+      
+    },
+    startDrag(event, panelId) {
+      if (!event.target.closest('.drag-handle')) return;
+      
+      const panel = this.panels.find(p => p.id === panelId);
+      if (!panel) return;
+
+      this.draggingPanelId = panelId;
+      this.dragOffset = {
+        x: event.clientX - panel.position.x,
+        y: event.clientY - panel.position.y
+      };
+
+      document.addEventListener('mousemove', this.handleDrag);
+      document.addEventListener('mouseup', this.stopDrag);
+    },
+
+    handleDrag(event) {
+      if (!this.draggingPanelId) return;
+      
+      const panel = this.panels.find(p => p.id === this.draggingPanelId);
+      if (panel) {
+        panel.position = {
+          x: event.clientX - this.dragOffset.x,
+          y: event.clientY - this.dragOffset.y
+        };
       }
     },
-    closeDeviceSync(index){
-      this.connecteddev[index].opensyncpanel = false;
+
+    stopDrag() {
+      this.draggingPanelId = null;
+      document.removeEventListener('mousemove', this.handleDrag);
+      document.removeEventListener('mouseup', this.stopDrag);
     }
   },
+
+  // 组件销毁时清理事件监听器
+  beforeUnmount() {
+    document.removeEventListener('mousemove', this.handleDrag);
+    document.removeEventListener('mouseup', this.stopDrag);
+  }
 };
 </script>
 
@@ -295,14 +404,24 @@ export default {
             @open-device="openDeviceSync"
           />
         </div>
-        <div v-if="device.opensyncpanel" class="sync-panel">
-          <syncpanel
-            :device_name="device.id"
-            :device_ip="device.ip"
-            :device_port="device.port"
-            @close-sync="closeDeviceSync(index)"
-          ></syncpanel>
-        </div>  
+        <div>
+          <div v-for="panel in panels" 
+               :key="panel.id"
+               class="sync-panel" 
+               :style="{ 
+                 left: panel.position.x + 'px', 
+                 top: panel.position.y + 'px' 
+               }"
+               @mousedown="(e) => startDrag(e, panel.id)">
+            <div class="drag-handle"></div>
+            <syncpanel
+              :device_name="panel.deviceId"
+              :device_ip="panel.deviceIp"
+              :device_port="panel.devicePort"
+              @close-sync="() => closeDeviceSync(panel.deviceId)"
+            ></syncpanel>
+          </div>
+        </div>
       </div>
     </TransitionGroup>
    
@@ -325,7 +444,6 @@ export default {
           v-model="selectedIP"
           @input="validateIP"
           :placeholder="'选择输入要开放的IP'"
-          :class="{ 'input-error': inputError }"
           class="ip-input"
         />
 
@@ -333,7 +451,6 @@ export default {
           v-model="linkPort"
           :placeholder="'端口号'"
           @input="validatePort"
-          :class="{ 'input-error': inputError }"
           class="port-input"
         />
 
@@ -345,8 +462,8 @@ export default {
         </button>
         <!-- 错误提示 -->
 
-        <div v-if="inputError" class="error-message">
-          未输入 IP 地址或端口格式输入错误
+        <div v-if="this.inputError" class="error-message">
+          {{this.error }}
         </div>
       </div>
 
@@ -400,10 +517,7 @@ export default {
     </div>
 
     <!-- 如果发生了其他错误 -->
-    <div v-else-if="this.error && isButtonClicked" class="error-section">
-      <ErrorSlot>{{ this.error }}</ErrorSlot>
-    </div>
-
+ 
     <!-- 监听按钮 -->
      
 
@@ -423,21 +537,52 @@ export default {
 
 
 .sync-panel {
-  position: relative;
-
-  transform: translate(-50%, -50%);
+  position: fixed;
   background: #f7f7f7;
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   width: 520px;
-  height: 660px;
+  height: auto;
+  
   max-width: 600px;
-  bottom: -260px;
-  right: -530%;
   z-index: 1000;
 }
 
+.drag-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 30px;
+  background: #e0e0e0;
+  border-radius: 8px 8px 0 0;
+  cursor: move;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.drag-handle::before {
+  content: '⋮⋮';
+  font-size: 20px;
+  color: #666;
+}
+
+.drag-handle:hover {
+  background: #d0d0d0;
+}
+
+.sync-panel syncpanel {
+  margin-top: 20px;
+  position: relative;
+}
+
+/* 防止文本被选中影响拖动体验 */
+.sync-panel * {
+  user-select: none;
+}
 
 .connected-device-container {
   position: relative;
