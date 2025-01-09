@@ -50,8 +50,7 @@ export default {
   align-items: center;
   justify-content: center;
   height: 98vh;
-  width: 196vh;
-
+  width: auto;
   background-color: rgb(84, 85, 85);
 }
 
@@ -113,9 +112,9 @@ export default {
   align-items: center;
   justify-content: center;
   width: 85%;
-  height: 70%;
- 
-  background-color:rgb(84, 85, 85);
+  height: 80%;
+  bottom: 29px;
+  background-color:rgb(71, 73, 73);
   border-radius: 10px;
   padding: 20px;
   margin-top: 20px;

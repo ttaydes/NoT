@@ -304,6 +304,10 @@ export default {
         if (this.connecteddev.every((device) => !device.status_dev)) {
           this.isdevconnected = false;
         }
+
+        // remove panel and disconnect the syncpanel
+        const devid = this.connecteddev[index].id;
+        this.closeDeviceSync(devid); 
       }
     },
     openDeviceSync(index) {
