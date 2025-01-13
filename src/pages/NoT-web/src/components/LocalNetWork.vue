@@ -9,7 +9,7 @@ export default {
     ErrorSlot,
     localconnector,
     lk,
-    syncpanel
+    syncpanel,
   },
 
   data() {
@@ -25,16 +25,16 @@ export default {
       online_dev: "", // 所有在线的设备
       linkPort: 33451, //连接端口
       isdevconnected: false, //记录连接设备列表是否有设备
-      
+
       connecteddev: [],
       panelPosition: {
         x: 0,
-        y: 0
+        y: 0,
       },
       isDragging: false,
       dragOffset: {
         x: 0,
-        y: 0
+        y: 0,
       },
       panels: [], // 新增：存储所有打开的面板
     };
@@ -67,7 +67,10 @@ export default {
         return;
       }
 
-      if (!ipv4Regex.test(this.selectedIP) && !ipv6Regex.test(this.selectedIP)) {
+      if (
+        !ipv4Regex.test(this.selectedIP) &&
+        !ipv6Regex.test(this.selectedIP)
+      ) {
         this.error = "请输入有效的IPv4或IPv6地址";
         this.inputError = true;
         return;
@@ -78,7 +81,7 @@ export default {
     },
     validatePort() {
       // Clear error state if input is empty
-      if (!this.linkPort || this.linkPort.trim() === '') {
+      if (!this.linkPort || this.linkPort.trim() === "") {
         this.error = "";
         this.inputError = false;
         return;
@@ -88,13 +91,13 @@ export default {
       if (!/^\d+$/.test(this.linkPort)) {
         this.error = "端口号只能包含数字";
         this.inputError = true;
-        this.linkPort = this.linkPort.replace(/\D/g, '');
+        this.linkPort = this.linkPort.replace(/\D/g, "");
         return;
       }
 
       // Convert to number for range checking
       const portNumber = Number(this.linkPort);
-      
+
       // Check port range (0-65535)
       if (portNumber < 0 || portNumber > 65535) {
         this.error = "端口号必须在0-65535之间";
@@ -152,7 +155,7 @@ export default {
     // 连接到选择的 IP 地址
     async serverOpen() {
       // Don't allow service start if there are validation errors
-      if (this.inputError || this.error) {
+      if (this.inputError || this.err) {
         return;
       }
 
@@ -174,7 +177,7 @@ export default {
           this.error = "服务开启失败";
         }
       } catch (err) {
-        this.error = "获取局域网 IP 失败，请检查网络连接或重试。";
+        console.log("service open failed..." + err);
       }
     },
 
@@ -213,9 +216,9 @@ export default {
           }
         }
       };
-      this.socketefws.on("disconnect", () => {
+      this.socketefws.onclose = () => {
         console.log("Disconnected from WebSocket");
-      });
+      };
       console.log(this.connecteddev);
     }, // 建立node EFws
 
@@ -273,7 +276,7 @@ export default {
           ip: device_ip,
           port: device_port,
           status_dev: true,
-          opensyncpanel: false
+          opensyncpanel: false,
         });
       } else {
         const existingDevice = this.connecteddev.find(
@@ -290,7 +293,7 @@ export default {
             ip: device_ip,
             port: device_port,
             status_dev: true,
-            opensyncpanel: false
+            opensyncpanel: false,
           });
         }
       }
@@ -307,12 +310,10 @@ export default {
 
         // remove panel and disconnect the syncpanel
         const devid = this.connecteddev[index].id;
-        this.closeDeviceSync(devid); 
+        this.closeDeviceSync(devid);
       }
     },
     openDeviceSync(index) {
-      
-
       // 创建新的面板实例
       const newPanel = {
         id: Date.now(), // 唯一标识符
@@ -320,83 +321,81 @@ export default {
         deviceIp: this.connecteddev[index].ip,
         devicePort: this.connecteddev[index].port,
         position: {
-          x: 100 + (this.panels.length * 30), // 错开放置
-          y: 100 + (this.panels.length * 30)
-        }
+          x: 100 + this.panels.length * 30, // 错开放置
+          y: 100 + this.panels.length * 30,
+        },
       };
-      
+
       this.panels.push(newPanel);
       this.connecteddev[index].opensyncpanel = true;
       console.log(this.panels);
     },
     closeDeviceSync(panelId) {
       // 移除特定的面板
-      this.panels = this.panels.filter(panel => panel.deviceId !== panelId);
+      this.panels = this.panels.filter((panel) => panel.deviceId !== panelId);
       // 如果设备没有其他打开的面板，更新设备状态
-      console.log(this.panels)
-      const device = this.connecteddev.find((dev) => 
-          (panelId === dev.id));
-      
-      if(device){
+      console.log(this.panels);
+      const device = this.connecteddev.find((dev) => panelId === dev.id);
+
+      if (device) {
         device.opensyncpanel = false;
       }
-      
     },
     startDrag(event, panelId) {
-      if (!event.target.closest('.drag-handle')) return;
-      
-      const panel = this.panels.find(p => p.id === panelId);
+      if (!event.target.closest(".drag-handle")) return;
+
+      const panel = this.panels.find((p) => p.id === panelId);
       if (!panel) return;
 
       this.draggingPanelId = panelId;
       this.dragOffset = {
         x: event.clientX - panel.position.x,
-        y: event.clientY - panel.position.y
+        y: event.clientY - panel.position.y,
       };
 
-      document.addEventListener('mousemove', this.handleDrag);
-      document.addEventListener('mouseup', this.stopDrag);
+      document.addEventListener("mousemove", this.handleDrag);
+      document.addEventListener("mouseup", this.stopDrag);
     },
 
     handleDrag(event) {
       if (!this.draggingPanelId) return;
-      
-      const panel = this.panels.find(p => p.id === this.draggingPanelId);
+
+      const panel = this.panels.find((p) => p.id === this.draggingPanelId);
       if (panel) {
         panel.position = {
           x: event.clientX - this.dragOffset.x,
-          y: event.clientY - this.dragOffset.y
+          y: event.clientY - this.dragOffset.y,
         };
       }
     },
 
     stopDrag() {
       this.draggingPanelId = null;
-      document.removeEventListener('mousemove', this.handleDrag);
-      document.removeEventListener('mouseup', this.stopDrag);
-    }
+      document.removeEventListener("mousemove", this.handleDrag);
+      document.removeEventListener("mouseup", this.stopDrag);
+    },
   },
 
   // 组件销毁时清理事件监听器
   beforeUnmount() {
-    document.removeEventListener('mousemove', this.handleDrag);
-    document.removeEventListener('mouseup', this.stopDrag);
-  }
+    document.removeEventListener("mousemove", this.handleDrag);
+    document.removeEventListener("mouseup", this.stopDrag);
+  },
 };
 </script>
 
 
 <template>
-  <div v-if="this.isdevconnected && this.isServiceOpen" class="connected-device-container">
+  <div
+    v-if="this.isdevconnected && this.isServiceOpen"
+    class="connected-device-container"
+  >
     <div class="device_list_name">
       <span style="color: lightgray">已经连接设备</span>
     </div>
 
     <TransitionGroup name="switch-fade" tag="ul" class="switch-list">
-      <div
-        v-for="(device, index) in connecteddev"
-        :key="device.id"
-      >
+      <div v-for="(device, index) in connecteddev" :key="device.id">
         <!-- 每个设备对应一个子组件 -->
         <div v-if="device.status_dev">
           <localconnector
@@ -409,14 +408,16 @@ export default {
           />
         </div>
         <div>
-          <div v-for="panel in panels" 
-               :key="panel.id"
-               class="sync-panel" 
-               :style="{ 
-                 left: panel.position.x + 'px', 
-                 top: panel.position.y + 'px' 
-               }"
-               @mousedown="(e) => startDrag(e, panel.id)">
+          <div
+            v-for="panel in panels"
+            :key="panel.id"
+            class="sync-panel"
+            :style="{
+              left: panel.position.x + 'px',
+              top: panel.position.y + 'px',
+            }"
+            @mousedown="(e) => startDrag(e, panel.id)"
+          >
             <div class="drag-handle"></div>
             <syncpanel
               :device_name="panel.deviceId"
@@ -428,106 +429,99 @@ export default {
         </div>
       </div>
     </TransitionGroup>
-   
   </div>
 
- 
-    <!-- 显示扫描到的 IP 地址 -->
+  <!-- 显示扫描到的 IP 地址 -->
 
-    <div v-if="localIPs.length > 0" class="local-ip-find">
-      <div>
-        <span class="ip-header">发现本地IP：</span>
-        <div v-for="(ip, index) in localIPs" :key="index" class="ip-item">
-          {{ ip }}
-        </div>
+  <div v-if="localIPs.length > 0" class="local-ip-find">
+    <div>
+      <span class="ip-header">发现本地IP：</span>
+      <div v-for="(ip, index) in localIPs" :key="index" class="ip-item">
+        {{ ip }}
       </div>
+    </div>
 
-      <!-- 输入框和连接按钮 -->
-      <div class="query-section">
-        <input
-          v-model="selectedIP"
-          @input="validateIP"
-          :placeholder="'选择输入要开放的IP'"
-          class="ip-input"
-        />
+    <!-- 输入框和连接按钮 -->
+    <div class="query-section">
+      <input
+        v-model="selectedIP"
+        @input="validateIP"
+        :placeholder="'选择输入要开放的IP'"
+        class="ip-input"
+      />
 
-        <input
-          v-model="linkPort"
-          :placeholder="'端口号'"
-          @input="validatePort"
-          class="port-input"
-        />
+      <input
+        v-model="linkPort"
+        :placeholder="'端口号'"
+        @input="validatePort"
+        class="port-input"
+      />
 
-        <button
-          @click="serverOpen"
-          :class="['connect-button', this.isServiceOpen ? 'off' : 'on']"
-        >
-          {{ isServiceOpen ? "服务开启成功,再次点击关闭" : "服务开启" }}
-        </button>
-        <!-- 错误提示 -->
+      <button
+        @click="serverOpen"
+        :class="['connect-button', this.isServiceOpen ? 'off' : 'on']"
+      >
+        {{ this.isServiceOpen ? "服务开启成功,再次点击关闭" : "服务开启" }}
+      </button>
+      <!-- 错误提示 -->
 
-        <div v-if="this.inputError" class="error-message">
-          {{this.error }}
-        </div>
+      <div v-if="this.inputError" class="error-message">
+        {{ this.error }}
       </div>
+    </div>
 
-      <lk v-if="this.isServiceOpen" @lksuccess="addDevicelist"></lk>
-      <div class="listener-section">
-        <button
-          v-if="this.isServiceOpen"
-          @click="toggleListening"
-          :class="['connect-button', this.isListening ? 'off' : 'on']"
-        >
-          {{ this.isListening ? "停止监听局域网服务" : "监听局域网服务" }}
-        </button>
+    <lk v-if="this.isServiceOpen" @lksuccess="addDevicelist"></lk>
+    <div class="listener-section">
+      <button
+        v-if="this.isServiceOpen"
+        @click="toggleListening"
+        :class="['connect-button', this.isListening ? 'off' : 'on']"
+      >
+        {{ this.isListening ? "停止监听局域网服务" : "监听局域网服务" }}
+      </button>
 
-        <div v-if="isListening" class="device-list-section">
-          <div v-if="online_dev.length > 0" class="device-list">
+      <div v-if="isListening" class="device-list-section">
+        <div v-if="online_dev.length > 0" class="device-list">
+          <div
+            v-for="(device, index) in online_dev"
+            :key="index"
+            class="device-item"
+          >
+            <!-- 信号状态 -->
             <div
-              v-for="(device, index) in online_dev"
-              :key="index"
-              class="device-item"
-            >
-              <!-- 信号状态 -->
-              <div
-                :class="['signal', device.device_name ? 'online' : 'offline']"
-              ></div>
-              <div class="device-info">
-                <span class="-name">{{ device.device_name }}</span>
-              </div>
-              <button
-                @click="
-                  connectToDevice(
-                    device.device_name,
-                    device.device_ip,
-                    device.device_nodeport
-                  )
-                "
-                class="connect-button-small"
-              >
-                连接
-              </button>
+              :class="['signal', device.device_name ? 'online' : 'offline']"
+            ></div>
+            <div class="device-info">
+              <span class="-name">{{ device.device_name }}</span>
             </div>
+            <button
+              @click="
+                connectToDevice(
+                  device.device_name,
+                  device.device_ip,
+                  device.device_nodeport
+                )
+              "
+              class="connect-button-small"
+            >
+              连接
+            </button>
           </div>
-          <div v-else class="no-devices">当前没有在线设备</div>
         </div>
+        <div v-else class="no-devices">当前没有在线设备</div>
       </div>
     </div>
-    
-    <!-- 如果没有找到 IP -->
-    <div v-else-if="localIPs.length <= 0" class="error-section">
-      <ErrorSlot>未发现 IP,请检查服务是否开启</ErrorSlot>
-      <button @click="scanLocalIPs" class="connect-button">重新获取</button>
-    </div>
+  </div>
 
-    <!-- 如果发生了其他错误 -->
- 
-    <!-- 监听按钮 -->
-     
+  <!-- 如果没有找到 IP -->
+  <div v-else-if="localIPs.length <= 0" class="error-section">
+    <ErrorSlot>未发现 IP,请检查服务是否开启</ErrorSlot>
+    <button @click="scanLocalIPs" class="connect-button">重新获取</button>
+  </div>
 
+  <!-- 如果发生了其他错误 -->
 
-
-
+  <!-- 监听按钮 -->
 </template>
 
 <style scoped>
@@ -539,7 +533,6 @@ export default {
 }
 /* 通用样式 */
 
-
 .sync-panel {
   position: fixed;
   background: #f7f7f7;
@@ -548,7 +541,7 @@ export default {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   width: 520px;
   height: auto;
-  
+
   max-width: 600px;
   z-index: 1000;
 }
@@ -569,7 +562,7 @@ export default {
 }
 
 .drag-handle::before {
-  content: '⋮⋮';
+  content: "⋮⋮";
   font-size: 20px;
   color: #666;
 }
