@@ -4,8 +4,8 @@ const routes = [
 
     {
         path: '/',
-        name: 'localhistory',
-        component: () => import('@/views/LocalHistory.vue')
+        name: 'Notpage',
+        component: () => import('@/App.vue')
     }
 ]
 

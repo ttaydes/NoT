@@ -112,7 +112,7 @@ export default {
       this.clipboardsocketefws = new WebSocket("ws://127.0.0.1:33456?userId=clipboardws");
 
       this.clipboardsocketefws.onopen = () => {
-        console.log("Connected to backend WebSocket");
+        console.log("cpb Connected to backend WebSocket");
       };
 
       this.clipboardsocketefws.onmessage = (event) => {

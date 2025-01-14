@@ -51,16 +51,19 @@ wsEF.on('connection', (wsef, req) => {  //前后端ws
         const localreqlinkport = JSON.parse(evenddata).localreqlinkport;
         const localdevstatus = JSON.parse(evenddata).status;
         const localreqlinktype = JSON.parse(evenddata).type;
-        const localreqlinkcontent = JSON.parse(evenddata).content;
         if (localreqlinktype == "clipboard") {
+            const localreqlinkcontent = JSON.parse(evenddata).content;
             const c = JSON.stringify({ localreqlinknames: localdevreqname, localreqlinkip: localreqlinkip, localreqlinkport: localreqlinkport, type: 'clipboard', content: localreqlinkcontent });
-
             sendMessageToClient('clipboardws', c); //每秒推送给前端  
         }
         if (localreqlinktype == "transfile") {
-            const f = JSON.stringify({ localreqlinknames: localdevreqname, localreqlinkip: localreqlinkip, localreqlinkport: localreqlinkport, type: 'clipboard', content: localreqlinkcontent });
-            // trans 
-            sendMessageToClient('clipboardws', c); //每秒推送给前端  
+            const transfilename = JSON.parse(evenddata).transfilename;
+            const transfilesize = JSON.parse(evenddata).transfilesize;
+            const transfileprogress = JSON.parse(evenddata).transprogress;
+            const f = JSON.stringify({ transfilename: transfilename, transfilesize: transfilesize, transfileprogress: transfileprogress, type: 'transfile' });
+
+            sendMessageToClient('transfilews', f); //每秒推送给前端  
+
         }
         if (localdevstatus == "accept") {
             const a = JSON.stringify({ localreqlinknames: localdevreqname, localreqlinkip: localreqlinkip, localreqlinkport: localreqlinkport, status: localdevstatus });
@@ -207,6 +210,7 @@ ws.on('connection', (ws) => {
             console.log("发送剪切板数据给efws");
         }
         else if (reqlinktype == "transfile") {
+            console.log("收到对方的file ws");
 
             const filemetadata = JSON.parse(eventdata).metadata;
 
@@ -217,7 +221,10 @@ ws.on('connection', (ws) => {
             const currentFilelasttime = filemetadata.filelastModifiedDate
             const filechunk = Buffer.from(JSON.parse(eventdata).chunks, "base64");
 
-            wstoef.send(JSON.stringify({ transfilename: filemetadata.fileName, transfilesize: currentFileSize, transfiletype: currentFileType, transfiletime: currentFilelasttime })); //将文件数据发送
+            const fileprogress = Math.round(((currentChunk + 1) / filemetadata.chunkNum) * 100);
+            wstoef.send(JSON.stringify({ type: "transfile", transfilename: currentFileName, transfilesize: currentFileSize, transprogress: fileprogress })); //将文件数据发送
+            // transfiletype: currentFileType, transfiletime: currentFilelasttime
+
             if (!fileBuffers[currentFileName]) {
 
                 fileBuffers[currentFileName] = { cn: filemetadata.chunkNum, ck: [] };

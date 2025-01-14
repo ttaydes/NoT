@@ -2,8 +2,32 @@
   <div class="file-transfer-panel">
     <!-- 文件传输列表 -->
     <div class="transfer-list">
-      <div v-if="receviefiles.length > 0">
-
+      <div v-if="receivefiles.length">
+        <div v-for="(file, index) in receivefiles" :key="index" class="transfer-item">
+          
+          <div class="progress-bar" :style="{ width: file.fileProgress + '%' }">
+          </div>
+    
+          <div class="file-info">
+            <div class="file-name">
+              {{ file.fileName }}
+            </div>
+            <div class="file-size">{{ formatFileSize(file.fileSize) }}</div>
+          </div>
+        
+          <button
+            @click="deleteFile(index)"
+            class="remove-btn"
+            title="删除文件"
+          >
+            ✖
+          </button>
+          <div class="status-container">
+            <span v-if="file.filestatus === 'success'" class="status success">接收成功</span>
+            <span v-else-if="file.filestatus === 'pending'" class="status error">传输中</span>
+          </div>
+         
+        </div>
         
       </div>
       <div v-else class="empty-item">
@@ -14,10 +38,8 @@
       <div v-if="sendfiles.length" >
         <div v-for="(file, index) in sendfiles" :key="index" class="transfer-item">
           
-          <div class="progress-bar" :style="{ width: this.fileprogress[file.file.name] + '%' }"></div>
-
-
-        
+          <div class="progress-bar" :style="{ width: file.progress + '%' }">
+          </div>
     
           <div class="file-info">
             <div class="file-name">
@@ -86,20 +108,64 @@ export default {
   },
   data() {
     return {
-      fileprogress: {},
       sendfiles: [],
-      receviefiles: [],
+      receivefiles: [],
       isDragging: false,
       isConnected: false,
       ws: null,
+      filesocketefws: null
 
     };
   },
   mounted(){
       this.initWebSocket()
+      this.transfilesetupEFws()
     },
   methods: {
     
+    transfilesetupEFws(){
+      this.filesocketefws = new WebSocket("ws://127.0.0.1:33456?userId=transfilews");
+      this.filesocketefws.onopen = () => {
+        console.log("ft Connected to backend WebSocket");
+      };
+      this.filesocketefws.onmessage = (event) => {
+        const fromlocalfiledata = event.data.toString();
+        // 解析外层的 JSON
+        const outerData = JSON.parse(fromlocalfiledata);
+        // 解析内层的 JSON 字符串
+        const data = JSON.parse(outerData.fromlocaldev);
+
+        const reqlinktype = data.type;
+        const transfilename = data.transfilename;
+        const transfilesize = data.transfilesize;
+        const transfileprogress = data.transfileprogress;
+
+       
+
+        if (reqlinktype === "transfile") {
+          if (!this.receivefiles.some((f) => f.fileName === transfilename)){
+            this.receivefiles.push({
+              fileName: transfilename,
+              fileSize: transfilesize,
+              fileProgress: 0,
+              filestatus: "pending"
+            });
+          }
+          if(transfileprogress != 0){
+            console.log(transfileprogress);
+            const file = this.receivefiles.find(file => file.fileName === transfilename);
+            file.fileProgress = transfileprogress;
+            if(transfileprogress == 100){
+              file.filestatus = "success";
+            }
+          }
+         
+            
+          
+        
+        }
+      };
+    },
     initWebSocket(){
 
       const wsUrl = `ws://${this.device_ip}:${this.device_port}`;
@@ -150,7 +216,13 @@ export default {
       });
     },
     removeFile(index) {
+      this.sendfiles[index].progress = 0;
       this.sendfiles.splice(index, 1);
+
+    },
+    deleteFile(index){
+      this.receivefiles.fileProgress = 0;
+      this.receivefiles.splice(index,1);
     },
     formatFileSize(size) {
       if (size < 1024) return `${size} B`;
@@ -168,20 +240,20 @@ export default {
 
       return chunks;
     },
-    async sendFileChunks(file,ws){
+    async sendFileChunks(fileobj,ws){
       
-      const chunksize = 8 * 1024; // chunk size 
-      const eachfilechunks = this.splitFile(file,chunksize);
+      const chunksize = 8 * 1024*1024; // chunk size 
+      const eachfilechunks = this.splitFile(fileobj.file,chunksize);
 
       const totalChunks = eachfilechunks.length;
 
       for (let i = 0; i < totalChunks; i++) {
         const chunk = eachfilechunks[i];
         const metadata = {
-          fileName: file.name,
-          fileType: file.type,
-          fileSize: file.size,
-          filelastModifiedDate: file.lastModified,
+          fileName: fileobj.file.name,
+          fileType: fileobj.file.type,
+          fileSize: fileobj.file.size,
+          filelastModifiedDate: fileobj.file.lastModified,
           chunkNum: totalChunks,
           currentChunk: i,
         };
@@ -192,6 +264,7 @@ export default {
           reader.onload = () => resolve(reader.result.split(",")[1]); // 提取 Base64 内容
           reader.onerror = () => reject(new Error("Blob 转换失败"));
           reader.readAsDataURL(chunk);
+          
         });        
         ws.send(JSON.stringify({ type: 'transfile', metadata: metadata,chunks: chunkBase64 }));
     
@@ -201,21 +274,20 @@ export default {
             const response = JSON.parse(event.data);
             if (response.type === 'ack' && response.chunk == i + 1) {
 
-              file.progress = Math.round(((i + 1) / totalChunks) * 100);
-              this.fileprogress[file.name] = file.progress;
+              fileobj.progress = Math.round(((i + 1) / totalChunks) * 100);
               resolve();
             }
         };
       }); // 确认接收后 再次发送下一个块
       }
-      file.status = "success"; 
+      fileobj.status = "success"; 
     },
     async sendMultiMultipleFiles(){
       
       console.log("发送以下文件:", this.sendfiles);
       for (const fileobj of this.sendfiles) {
         try {
-          await this.sendFileChunks(fileobj.file, this.ws);
+          await this.sendFileChunks(fileobj, this.ws);
         } catch (error) {
         fileobj.status = "error"; // 传输失败
         console.error("文件传输失败:", error);
@@ -376,7 +448,7 @@ export default {
 .status-container {
   position: relative;
   z-index: 2; /* 状态信息在进度条之上 */
-  margin-left: 10px;
+  margin-right: 100px;
 }
 
 .status {
