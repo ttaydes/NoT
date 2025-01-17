@@ -19,7 +19,6 @@ IFSTART = False
 
 
 node_process = None  #存储node进程
-listener = zeroconfLocal.MyListener()
 #register a zeroconf instance
 
 
@@ -106,11 +105,10 @@ def serv():
         th_start = threading.Thread(target=zeroconfLocal.start_service, args=(info,))
         th_start.start()
         th_start.join()
+
         return jsonify({
             'message': 'Service started successfully',
-            'status_id': 1,
-            'ip': local_ip,
-            'port': 5000
+            'status_id': 1
         })
 
     # 关闭服务
@@ -159,23 +157,23 @@ LISTEN_IFSTART = False
 def listen_for_services():
     global LISTEN_IFSTART
     try:
+
         last_flash_list =  []
         # 创建服务浏览器，监听局域网内的所有 _http._tcp.local. 服务
-        browser = zeroconfLocal.ServiceBrowser(zeroconfLocal.zeroconfins, "_http._tcp.local.", listener)
-        
+        zeroconfLocal.browser        
         socketio.sleep(4) #加事件缓冲
 
         while LISTEN_IFSTART:
             try:
             
-                logging.warning(f"Sending device list: {listener.local_online_device}")  # 打印发送的数据
+                logging.warning(f"Sending device list: {zeroconfLocal.listener.local_online_device}")  # 打印发送的数据
                 """
                     这里没做判读即与上一次发生变换做对比 不一样才会发送
                     现在是一直发送比较消耗资源
                     bug后面再改现在能跑
                 """
-                socketio.emit('device_list', {'online_device': listener.local_online_device})
-                last_flash_list = listener.local_online_device  # 更新最后一次的设备列表
+                socketio.emit('device_list', {'online_device': zeroconfLocal.listener.local_online_device})
+                last_flash_list = zeroconfLocal.listener.local_online_device  # 更新最后一次的设备列表
                 socketio.sleep(1)  # 每1秒钟推送一次
             except Exception as e:
                 logging.ERROR(e)
@@ -210,10 +208,9 @@ def listenserver():
    
     elif listen_start == '0' and LISTEN_IFSTART:
         LISTEN_IFSTART = False
-        listener.local_online_device = []
 
         return jsonify({
-        'online_devices': listener.local_online_device,
+        'online_devices': zeroconfLocal.listener.local_online_device,
         'message': 'Service listener stopped',
         'status': '2'
     })
@@ -245,4 +242,4 @@ def handle_disconnect():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5001)
+    socketio.run(app,host="0.0.0.0", port=5001)

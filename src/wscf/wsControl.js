@@ -60,9 +60,17 @@ wsEF.on('connection', (wsef, req) => {  //前后端ws
             const transfilename = JSON.parse(evenddata).transfilename;
             const transfilesize = JSON.parse(evenddata).transfilesize;
             const transfileprogress = JSON.parse(evenddata).transprogress;
-            const f = JSON.stringify({ transfilename: transfilename, transfilesize: transfilesize, transfileprogress: transfileprogress, type: 'transfile' });
+            const transfilestatus = JSON.parse(evenddata).filestatus;
+            const transfilefromwhere = JSON.parse(evenddata).fromwhere;
+            if (transfilestatus == "canceled") {
+                const fc = JSON.stringify({ transfilestatus: transfilestatus, transfilename: transfilename, transfilesize: transfilesize, transfileprogress: transfileprogress, type: 'transfile', transfilefromwhere: transfilefromwhere });
+                sendMessageToClient('transfilews', fc); //每秒推送给前端  
+            } else {
+                const f = JSON.stringify({ transfilename: transfilename, transfilesize: transfilesize, transfileprogress: transfileprogress, type: 'transfile', transfilefromwhere: transfilefromwhere });
+                sendMessageToClient('transfilews', f); //每秒推送给前端 
+                console.log(f);
+            }
 
-            sendMessageToClient('transfilews', f); //每秒推送给前端  
 
         }
         if (localdevstatus == "accept") {
@@ -204,45 +212,57 @@ ws.on('connection', (ws) => {
 
         const clipboarddata = JSON.parse(eventdata).content;
 
+
         if (reqlinktype == "clipboard") {
             clipboardLink.set(reqlinknames, ws);
             wstoef.send(JSON.stringify({ localreqlinknames: reqlinknames, localreqlinkip: reqlinkip, localreqlinkport: reqlinkport, type: 'clipboard', content: clipboarddata })); //将接受的设备名 推送前端efws
             console.log("发送剪切板数据给efws");
         }
         else if (reqlinktype == "transfile") {
-            console.log("收到对方的file ws");
-
             const filemetadata = JSON.parse(eventdata).metadata;
-
-            const currentChunk = filemetadata.currentChunk;
             const currentFileName = filemetadata.fileName;
             const currentFileSize = filemetadata.fileSize;
-            const currentFileType = filemetadata.fileType;
-            const currentFilelasttime = filemetadata.filelastModifiedDate
-            const filechunk = Buffer.from(JSON.parse(eventdata).chunks, "base64");
+            const currentStatus = filemetadata.status;
+            const fromwhere = filemetadata.from;
 
-            const fileprogress = Math.round(((currentChunk + 1) / filemetadata.chunkNum) * 100);
-            wstoef.send(JSON.stringify({ type: "transfile", transfilename: currentFileName, transfilesize: currentFileSize, transprogress: fileprogress })); //将文件数据发送
-            // transfiletype: currentFileType, transfiletime: currentFilelasttime
+            if (currentStatus == "canceled") {
+                wstoef.send(JSON.stringify({ type: "transfile", transfilename: currentFileName, transfilesize: currentFileSize, transprogress: 101, filestatus: "canceled", fromwhere: fromwhere })); //将文件数据发送
+            }
+            else {
 
-            if (!fileBuffers[currentFileName]) {
+                const currentChunk = filemetadata.currentChunk;
+                const currentFileType = filemetadata.fileType; // 文件类型用于后续可扩展类型图标 暂未使用   
+                const currentFilelasttime = new Date(filemetadata.filelastModifiedDate);
+                const filechunk = Buffer.from(JSON.parse(eventdata).chunks, "base64");
 
-                fileBuffers[currentFileName] = { cn: filemetadata.chunkNum, ck: [] };
+                const fileprogress = Math.round(((currentChunk + 1) / filemetadata.chunkNum) * 100);
+                wstoef.send(JSON.stringify({ type: "transfile", transfilename: currentFileName, transfilesize: currentFileSize, transprogress: fileprogress, fromwhere: fromwhere })); //将文件数据发送
+                // transfiletype: currentFileType, transfiletime: currentFilelasttime
 
+                if (!fileBuffers[currentFileName]) {
+
+                    fileBuffers[currentFileName] = { cn: filemetadata.chunkNum, ck: [] };
+
+                }
+
+                fileBuffers[currentFileName].ck[currentChunk] = filechunk;
+
+                ws.send(JSON.stringify({ type: 'ack', chunk: currentChunk + 1 }));
+
+
+                if (fileBuffers[currentFileName].ck.length == fileBuffers[currentFileName].cn) {
+
+                    const fileData = Buffer.concat(fileBuffers[currentFileName].ck);
+                    const filePath = `../../save/files/${currentFileName}`;
+
+                    fs.writeFileSync(filePath, fileData);
+                    fs.utimesSync(filePath, currentFilelasttime, currentFilelasttime);
+                    console.log(`${currentFileName} 上传完成`);
+
+                }
             }
 
-            fileBuffers[currentFileName].ck[currentChunk] = filechunk;
 
-            ws.send(JSON.stringify({ type: 'ack', chunk: currentChunk + 1 }));
-
-
-            if (fileBuffers[currentFileName].ck.length == fileBuffers[currentFileName].cn) {
-
-                const fileData = Buffer.concat(fileBuffers[currentFileName].ck);
-                fs.writeFileSync(`../../save/files/${currentFileName}`, fileData);
-                console.log(`${currentFileName} 上传完成`);
-
-            }
 
         }
 

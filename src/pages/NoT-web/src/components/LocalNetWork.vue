@@ -269,6 +269,9 @@ export default {
     },
 
     addDevicelist(device_name, device_ip, device_port) {
+      if(this.localIPs.find((ips) => ips === device_ip)){
+        return;
+      }
       this.isdevconnected = true;
       if (this.connecteddev.length == 0 && this.isdevconnected) {
         this.connecteddev.push({
@@ -280,7 +283,7 @@ export default {
         });
       } else {
         const existingDevice = this.connecteddev.find(
-          (device) => device.id === device_name
+          (device) => device.ip === device_ip
         );
 
         if (existingDevice) {
@@ -601,22 +604,6 @@ export default {
   width: 300px; /* 设置新组件的宽度 */
 }
 
-.connect-button-small {
-  border: none;
-
-  padding: 5px 10px;
-  font-size: 14px;
-  background-color: #5ca371;
-  border-radius: 5px;
-}
-.connect-button-small:hover {
-  background-color: #4945a0;
-  transform: scale(1.05);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
-}
-.connect-button-small:focus {
-  outline: none;
-}
 /* IP 地址发现部分样式 */
 .local-ip-find {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
@@ -733,54 +720,64 @@ span {
 /* 不监听时的按钮样式 */
 .off {
   background-color: #f44336; /* 红色 */
-}
-/* 信号部分样式 */
-.signal {
+}.signal {
   width: 10px;
   height: 10px;
   border-radius: 50%;
   margin-right: 10px;
-  background-color: gray;
-  animation: pulse 1.5s infinite ease-in-out;
+  transition: background-color 0.3s ease;
 }
 
-/* 在线状态 */
 .signal.online {
-  background-color: green;
+  background-color: #4caf50; /* 绿色，表示在线 */
+  animation: signal-blink 1s infinite;
 }
 
-/* 离线状态 */
 .signal.offline {
-  background-color: lightgray;
-  animation: none; /* 离线时没有动画 */
+  background-color: #f44336; /* 红色，表示离线 */
 }
+
+
 .device-item {
   display: flex;
   align-items: center;
-  margin-bottom: 10px;
-  padding: 10px;
-  background-color: #f9f9f9;
-  border-radius: 8px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-}
-
-.device-info {
-  display: flex;
-  align-items: center;
   justify-content: space-between;
-  width: 100%;
+  padding: 10px;
+  margin-bottom: 10px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0px 2px 6px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s, box-shadow 0.3s; /* 添加动画 */
 }
 
-.device-name {
-  font-size: 16px;
-  color: #333;
+.device-item:hover {
+  transform: translateY(-5px); /* 悬浮时向上浮动 */
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.2); /* 增加阴影 */
 }
 
-.no-devices {
-  color: #777;
-  font-size: 14px;
-  text-align: center;
-  margin-top: 10px;
+.device-item .signal {
+  flex-shrink: 0; /* 防止缩放 */
+}
+
+.device-item .device-info {
+  flex: 1; /* 使文本区域可伸缩 */
+  margin-left: 10px; /* 与信号点间距 */
+}
+
+.device-item .connect-button-small {
+  flex-shrink: 0; /* 防止按钮变形 */
+  padding: 5px 10px; /* 内边距优化 */
+  border: none;
+  border-radius: 5px; /* 圆角 */
+  background-color: #5ca371; /* 按钮背景色 */
+  color: rgb(255, 243, 243);
+  cursor: pointer;
+}
+.device-list {
+  display: flex;
+  flex-direction: column; /* 子元素纵向排列 */
+  gap: 10px; /* 子元素之间的间距 */
+  padding: 10px; /* 内边距 */
 }
 /* 呼吸动画 */
 @keyframes pulse {
@@ -808,6 +805,14 @@ span {
   }
 }
 
+@keyframes signal-blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
 @keyframes fade-out {
   0% {
     opacity: 1;

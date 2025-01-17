@@ -14,19 +14,23 @@ export default {
     device_port: String,
   },
   methods: {
-    // 点击按钮时向父组件发送事件
     async closeDevice() {
-      const res = await fetch(
-        `http://127.0.0.1:3345/tolocalws?device_ip=${this.device_ip}&device_port=${this.device_port}&connect_status=close`
-      );
-      const resDataclose = await res.json();
-      if (resDataclose.LinkStatus == "closeok") {
-        this.$emit("close-device", this.index); // 向父组件发出 'close-device' 事件
+      try{
+        const res = await fetch(
+        `http://127.0.0.1:3345/tolocalws?device_ip=${this.device_ip}&device_port=${this.device_port}&connect_status=close`);
+        const resDataclose = await res.json();
+
+        if (resDataclose.LinkStatus == "closeok") {
+          this.$emit("close-device", this.index); // 向父组件发出 'close-device' 事件
       }
+      }catch(error){
+        this.$emit("close-device", this.index); // 向父组件发出 'close-device' 事件
+
+      }
+      
     },
     openDevice() {
       this.$emit("open-device", this.index); // 向父组件发出 'open-device' 事件
-      
     },
   },
 };

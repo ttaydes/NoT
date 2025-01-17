@@ -1,11 +1,17 @@
 <template>
   <div class="file-transfer-panel">
+    
+            
     <!-- 文件传输列表 -->
     <div class="transfer-list">
       <div v-if="receivefiles.length">
         <div v-for="(file, index) in receivefiles" :key="index" class="transfer-item">
           
           <div class="progress-bar" :style="{ width: file.fileProgress + '%' }">
+      
+      
+            
+    
           </div>
     
           <div class="file-info">
@@ -22,11 +28,13 @@
           >
             ✖
           </button>
+        
           <div class="status-container">
             <span v-if="file.filestatus === 'success'" class="status success">接收成功</span>
+            <span v-else-if="file.filestatus === 'canceled'" class="status error">传输已经取消</span>
             <span v-else-if="file.filestatus === 'pending'" class="status error">传输中</span>
           </div>
-         
+        
         </div>
         
       </div>
@@ -57,9 +65,10 @@
           </button>
           <div class="status-container">
             <span v-if="file.status === 'success'" class="status success">发送成功</span>
+            <span v-else-if="file.status === 'canceled'" class="status error">传输已经取消</span>
             <span v-else-if="file.status === 'error'" class="status error">发送失败</span>
           </div>
-         
+        
         </div>
       </div>
       <div v-else class="empty-item">暂无待发送文件</div>
@@ -71,6 +80,7 @@
     >
       发送文件 ({{ sendfiles.length }})
     </button>
+    <!--后期可加入每个文件可选发送或重发-->
 
     <!-- 文件上传区域 -->
     <div
@@ -114,6 +124,7 @@ export default {
       isConnected: false,
       ws: null,
       filesocketefws: null
+      
 
     };
   },
@@ -122,6 +133,7 @@ export default {
       this.transfilesetupEFws()
     },
   methods: {
+    
     
     transfilesetupEFws(){
       this.filesocketefws = new WebSocket("ws://127.0.0.1:33456?userId=transfilews");
@@ -139,29 +151,46 @@ export default {
         const transfilename = data.transfilename;
         const transfilesize = data.transfilesize;
         const transfileprogress = data.transfileprogress;
-
-       
-
+        const transfilestatus = data.transfilestatus;
+        const transfilefromwhere = data.transfilefromwhere;
+        console.log(data);
         if (reqlinktype === "transfile") {
-          if (!this.receivefiles.some((f) => f.fileName === transfilename)){
-            this.receivefiles.push({
-              fileName: transfilename,
-              fileSize: transfilesize,
-              fileProgress: 0,
-              filestatus: "pending"
-            });
+          if(transfilefromwhere == "s"){
+              if (!this.receivefiles.some((f) => f.fileName === transfilename)){
+                this.receivefiles.push({
+                  fileName: transfilename,
+                  fileSize: transfilesize,
+                  fileProgress: 0,
+                  filestatus: "pending"
+                });
+              }
+              if(transfileprogress != 0){
+                const file = this.receivefiles.find(file => file.fileName === transfilename);
+                file.fileProgress = transfileprogress;
+                if(transfileprogress == 100){
+                  file.filestatus = "success";
+                }
+                if(transfilestatus == "canceled"){
+                  file.filestatus = "canceled";
+                }
+              }
           }
-          if(transfileprogress != 0){
-            console.log(transfileprogress);
-            const file = this.receivefiles.find(file => file.fileName === transfilename);
-            file.fileProgress = transfileprogress;
-            if(transfileprogress == 100){
-              file.filestatus = "success";
-            }
-          }
-         
-            
           
+          else if(transfilefromwhere == "r"){
+            if(transfileprogress != 0){
+              try{
+                const file = this.sendfiles.find((fileobj) => fileobj.file.name === transfilename);
+              if(transfilestatus == "canceled"){
+                file.status = "canceled";
+              }
+              }catch(error){
+                console.log(error); 
+
+              }
+             
+            }
+
+          }
         
         }
       };
@@ -217,11 +246,46 @@ export default {
     },
     removeFile(index) {
       this.sendfiles[index].progress = 0;
+      this.sendfiles[index].status = "canceled";
       this.sendfiles.splice(index, 1);
+      
 
     },
     deleteFile(index){
       this.receivefiles.fileProgress = 0;
+      this.receivefiles[index].filestatus = "canceled";
+      // const metadata = {
+      //     fileName: fileobj.file.name,
+      //     fileType: fileobj.file.type,
+      //     fileSize: fileobj.file.size,
+      //     filelastModifiedDate: fileobj.file.lastModified,
+      //     chunkNum: totalChunks,
+      //     currentChunk: i,
+      //     status: "canceled",
+        
+      //   };
+        
+      //     console.log(`文件传输已取消: ${fileobj.file.name}`);
+      //     ws.send(JSON.stringify({ type: 'transfile', metadata: metadata }));
+      // this.receivefiles.push({
+      //         fileName: transfilename,
+      //         fileSize: transfilesize,
+      //         fileProgress: 0,
+      //         filestatus: "pending"
+      //       });
+
+
+      const fn = this.receivefiles[index].fileName;
+      const fz = this.receivefiles[index].fileSize;
+      const fs = this.receivefiles[index].filestatus;
+      const metadata = {
+        fileName: fn,
+        fileSize: fz,
+        status: fs,
+        from: 'r'
+      };
+      this.ws.send(JSON.stringify({ type: 'transfile', metadata: metadata }))
+    
       this.receivefiles.splice(index,1);
     },
     formatFileSize(size) {
@@ -248,6 +312,24 @@ export default {
       const totalChunks = eachfilechunks.length;
 
       for (let i = 0; i < totalChunks; i++) {
+        if (fileobj.status == "canceled") {
+          const metadata = {
+          fileName: fileobj.file.name,
+          fileType: fileobj.file.type,
+          fileSize: fileobj.file.size,
+          filelastModifiedDate: fileobj.file.lastModified,
+          chunkNum: totalChunks,
+          currentChunk: i,
+          status: "canceled",
+          from: 's'
+        
+          };
+        
+          console.log(`文件传输已取消: ${fileobj.file.name}`);
+          ws.send(JSON.stringify({ type: 'transfile', metadata: metadata }));
+
+          return; // 停止发送
+        }
         const chunk = eachfilechunks[i];
         const metadata = {
           fileName: fileobj.file.name,
@@ -256,6 +338,10 @@ export default {
           filelastModifiedDate: fileobj.file.lastModified,
           chunkNum: totalChunks,
           currentChunk: i,
+          status: "transing",
+          from: 's'
+
+        
         };
 
         // chunkdata 为chunk的字符串形式
