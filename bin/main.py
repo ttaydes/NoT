@@ -25,7 +25,7 @@ def start_backend():
     python_command = check_python_version()
     if python_command:
         # 使用找到的 python 命令启动 Flask 后端
-        subprocess.run([python_command, "../flaskAPI/api.py"])
+        subprocess.run([python_command, "../src/flaskAPI/api.py"])
     else:
         print("Python is not installed or cannot be found!")
 
