@@ -253,7 +253,7 @@ ws.on('connection', (ws) => {
                 if (fileBuffers[currentFileName].ck.length == fileBuffers[currentFileName].cn) {
 
                     const fileData = Buffer.concat(fileBuffers[currentFileName].ck);
-                    const filePath = `../../save/files/${currentFileName}`;
+                    const filePath = `../save/files/${currentFileName}`;
 
                     fs.writeFileSync(filePath, fileData);
                     fs.utimesSync(filePath, currentFilelasttime, currentFilelasttime);
