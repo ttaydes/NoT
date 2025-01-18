@@ -8,7 +8,6 @@ class MyListener:
     
     def __init__(self):
         self.local_online_device = []
-        self.device_threads = {} #监控设备的线程
     
     def remove_service(self, zeroconf, type, name):
         # 设备下线时触发
