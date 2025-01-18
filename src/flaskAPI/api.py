@@ -30,9 +30,6 @@ def serve_index():
     
     return send_from_directory(app.static_folder, "index.html")
 
-@app.route("/<path:path>")
-def serve_static(path):
-    return send_from_directory(app.static_folder, path)
 
 @app.route("/api/getlocalip", methods=["GET"])
 
@@ -153,6 +150,11 @@ def serv():
             'status_id': 1 
         })
 
+
+
+
+
+
 """
 监听路由模块
 """
@@ -247,7 +249,11 @@ def handle_disconnect():
     logging.warning("Client disconnected")
 
 
- 
+@app.route("/<path:path>")
+def serve_static(path):
+    return send_from_directory(app.static_folder, path)
+
+
 
 
 if __name__ == "__main__":
