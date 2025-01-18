@@ -1,20 +1,25 @@
-import { createRouter, createWebHashHistory } from "vue-router"
+import { createRouter, createWebHashHistory } from "vue-router";
 
 const routes = [
-
     {
-        path: '/',
-        name: 'Notpage',
-        component: () => import('@/App.vue')
+        path: "/",
+        name: "Home",
+        component: () => import("@/App.vue"),
+        meta: { title: "NoT——____————____" }
     }
-]
+];
 
-export const router = createRouter({
-
+const router = createRouter({
     history: createWebHashHistory(),
+    routes
+});
 
-    routes: routes
+// 全局路由守卫
+router.beforeEach((to, from, next) => {
+    if (to.meta.title) {
+        document.title = to.meta.title;
+    }
+    next();
+});
 
-})
-
-export default router
+export default router;

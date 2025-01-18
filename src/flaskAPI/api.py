@@ -1,4 +1,4 @@
-from flask import Flask,request,jsonify
+from flask import Flask,request,jsonify,send_from_directory
 from flask_cors import *
 from flask_socketio import SocketIO, emit
 import zeroconfLocal
@@ -7,8 +7,10 @@ import psutil
 import threading
 import logging
 import nodeServ
+import os
 
-app = Flask(__name__)
+
+app = Flask(__name__, static_folder="../pages/NoT-web/dist")
 CORS(app, supports_credentials=True)
 
 
@@ -23,7 +25,14 @@ node_process = None  #存储node进程
 
 
 
+@app.route('/')
+def serve_index():
+    
+    return send_from_directory(app.static_folder, "index.html")
 
+@app.route("/<path:path>")
+def serve_static(path):
+    return send_from_directory(app.static_folder, path)
 
 @app.route("/api/getlocalip", methods=["GET"])
 

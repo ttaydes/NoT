@@ -4,6 +4,7 @@ import IP from "./components/InternetWork.vue";
 import localconnector from "./components/LocalConnector.vue";
 
 export default {
+
   components: {
     LAN,
     IP,
