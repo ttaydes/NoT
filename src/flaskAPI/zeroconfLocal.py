@@ -41,7 +41,7 @@ class MyListener:
         decimal_values = list(s)
         ip_address = '.'.join(map(str, decimal_values))
         dev_info = {"device_name":dev_name,"device_ip":ip_address,"device_nodeport":local_node_port}
-        if dev_info not in self.local_online_device and  ip_address != socket.gethostname():
+        if dev_info not in self.local_online_device and  dev_name != '_' + socket.gethostname():
             self.local_online_device.append(dev_info)
   
     def update_service(self, zeroconf, type, name):
