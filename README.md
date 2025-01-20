@@ -21,13 +21,13 @@
 ###### __build environment__
 
 - python3^ & flask:latest
-- node lts(v22.13.0) & express latest
-- Vue3 latest
+- node lts(v22.13.0) & Express:latest
+- Vue3:latest
 
    项目下安装python库依赖
 
  ```py
- pip instal -r requirements.txt
+ pip install -r requirements.txt
  ```
 
    package.json 库依赖安装，所在目录下
@@ -38,15 +38,14 @@
 
 
 
-是目前所实现的一个demo,为__桌面端__&__插件__实现提供kernel
+是目前所实现的一个demo,为**桌面端**&**插件**实现提供kernel
 
-当前具有__文件传输__和__剪切板同步__的功能
+当前具有**文件传输**和**剪切板同步**的功能
 
 项目主要实现了：
-
-- __局域网设备监听服务__
+- __局域网设备发现__
 - __连接设备管理__
-- __文件传输控制__（超过10GB大小以上未测试，预计没问题）
+- __剪切板同步与文件传输控制__（超过10GB大小以上未测试，预计没问题）
 
 ## Update
 
@@ -56,5 +55,5 @@
 
 ## Preview
 
-> 将基于Electron对桌面端的实现
+> 将基于Electron对桌面端与移动端的实现; 开发IP模块预计功能有vps中转同步数据流,vps-for-web管理...
 
