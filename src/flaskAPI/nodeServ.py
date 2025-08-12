@@ -10,7 +10,7 @@ def start_nodeserve(li,lp):
     global node_process
     if not node_process:
         try:        
-            node_process = subprocess.Popen(['node', '../src/wscf/wsControl.js',li,lp])  # 启动一个新的 Node.js 进程
+            node_process = subprocess.Popen(['node', '../wscf/wsControl.js',li,lp])  # 启动一个新的 Node.js 进程
         except Exception as e:
             logging.warning(e)
 
